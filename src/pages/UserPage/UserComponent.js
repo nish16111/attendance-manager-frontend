@@ -1,16 +1,25 @@
 import React, { useState } from "react";
-import { Button, Modal, Box, TextField, FormControl, InputLabel, Select, MenuItem, Typography } from "@mui/material";
+import {
+  Button,
+  Modal,
+  Box,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Typography,
+} from "@mui/material";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
 import axios from "axios";
-
 
 const UserComponent = () => {
   const [open, setOpen] = useState(false);
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
 
-  const [grNo, setGrNo] = useState('');
+  const [grNo, setGrNo] = useState("");
   const [userData, setUserData] = useState(null);
 
   const fetchUserByGrNo = async () => {
@@ -18,14 +27,17 @@ const UserComponent = () => {
       return null;
     }
     try {
-      const res = await axios.get(`http://localhost:8080/home/users/fetchUserBygrNo/${grNo}`)
+      console.log("1. grNo: ", grNo);
+      const res = await axios.get(
+        `http://localhost:8080/home/users/fetchUserBygrNo?grNo=${grNo}`
+      );
+      console.log("2. grNo: ", grNo);
       console.log("response from fetchUserByGrNoAPI: ", res);
       setUserData(res.data);
-    } catch(e) {
-      console.log("Could not fetch User: ", e)
+    } catch (e) {
+      console.log("Could not fetch User: ", e);
     }
-    
-  }
+  };
 
   // Validation Schema
   const validationSchema = Yup.object({
@@ -33,7 +45,9 @@ const UserComponent = () => {
     name: Yup.string().required("Name is required"),
     department: Yup.string().required("Department is required"),
     totalAttendance: Yup.number().required("Total Attendance is required"),
-    mobileNumber: Yup.string().matches(/^\d{10}$/, "Mobile number must be 10 digits").required("Mobile Number is required"),
+    mobileNumber: Yup.string()
+      .matches(/^\d{10}$/, "Mobile number must be 10 digits")
+      .required("Mobile Number is required"),
     area: Yup.string().required("Area is required"),
     age: Yup.number().required("Age is required").min(1, "Invalid age"),
     initiated: Yup.boolean().required("Initiated is required"),
@@ -85,7 +99,11 @@ const UserComponent = () => {
             overflowY: "auto",
           }}
         >
-          <Typography variant="h5" align="center" sx={{ fontWeight: "bold", color: "#1976d2" }}>
+          <Typography
+            variant="h5"
+            align="center"
+            sx={{ fontWeight: "bold", color: "#1976d2" }}
+          >
             Add User
           </Typography>
           <Formik
@@ -98,32 +116,119 @@ const UserComponent = () => {
             }}
           >
             {({ values, setFieldValue, errors, touched }) => (
-              <Form style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                <TextField label="GRNO" name="grNo" fullWidth value={values.grNo} onChange={(e) => setFieldValue("grNo", e.target.value)} error={touched.grNo && Boolean(errors.grNo)} helperText={touched.grNo && errors.grNo} />
-                <TextField label="Name" name="name" fullWidth value={values.name} onChange={(e) => setFieldValue("name", e.target.value)} error={touched.name && Boolean(errors.name)} helperText={touched.name && errors.name} />
-                <TextField label="Department" name="department" fullWidth value={values.department} onChange={(e) => setFieldValue("department", e.target.value)} error={touched.department && Boolean(errors.department)} helperText={touched.department && errors.department} />
-                <TextField label="Total Attendance" name="totalAttendance" fullWidth type="number" value={values.totalAttendance} onChange={(e) => setFieldValue("totalAttendance", e.target.value)} error={touched.totalAttendance && Boolean(errors.totalAttendance)} helperText={touched.totalAttendance && errors.totalAttendance} />
+              <Form
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "16px",
+                }}
+              >
+                <TextField
+                  label="GRNO"
+                  name="grNo"
+                  fullWidth
+                  value={values.grNo}
+                  onChange={(e) => setFieldValue("grNo", e.target.value)}
+                  error={touched.grNo && Boolean(errors.grNo)}
+                  helperText={touched.grNo && errors.grNo}
+                />
+                <TextField
+                  label="Name"
+                  name="name"
+                  fullWidth
+                  value={values.name}
+                  onChange={(e) => setFieldValue("name", e.target.value)}
+                  error={touched.name && Boolean(errors.name)}
+                  helperText={touched.name && errors.name}
+                />
+                <TextField
+                  label="Department"
+                  name="department"
+                  fullWidth
+                  value={values.department}
+                  onChange={(e) => setFieldValue("department", e.target.value)}
+                  error={touched.department && Boolean(errors.department)}
+                  helperText={touched.department && errors.department}
+                />
+                <TextField
+                  label="Total Attendance"
+                  name="totalAttendance"
+                  fullWidth
+                  type="number"
+                  value={values.totalAttendance}
+                  onChange={(e) =>
+                    setFieldValue("totalAttendance", e.target.value)
+                  }
+                  error={
+                    touched.totalAttendance && Boolean(errors.totalAttendance)
+                  }
+                  helperText={touched.totalAttendance && errors.totalAttendance}
+                />
 
                 {/* File Upload Section */}
                 <Typography variant="body1" sx={{ fontWeight: "bold", mt: 2 }}>
                   Upload Photo
                 </Typography>
-                <input type="file" name="photo" onChange={(event) => setFieldValue("photo", event.target.files[0])} />
+                <input
+                  type="file"
+                  name="photo"
+                  onChange={(event) =>
+                    setFieldValue("photo", event.target.files[0])
+                  }
+                />
 
-                <TextField label="Mobile Number" name="mobileNumber" fullWidth value={values.mobileNumber} onChange={(e) => setFieldValue("mobileNumber", e.target.value)} error={touched.mobileNumber && Boolean(errors.mobileNumber)} helperText={touched.mobileNumber && errors.mobileNumber} />
-                <TextField label="Area" name="area" fullWidth value={values.area} onChange={(e) => setFieldValue("area", e.target.value)} error={touched.area && Boolean(errors.area)} helperText={touched.area && errors.area} />
-                <TextField label="Age" name="age" fullWidth type="number" value={values.age} onChange={(e) => setFieldValue("age", e.target.value)} error={touched.age && Boolean(errors.age)} helperText={touched.age && errors.age} />
+                <TextField
+                  label="Mobile Number"
+                  name="mobileNumber"
+                  fullWidth
+                  value={values.mobileNumber}
+                  onChange={(e) =>
+                    setFieldValue("mobileNumber", e.target.value)
+                  }
+                  error={touched.mobileNumber && Boolean(errors.mobileNumber)}
+                  helperText={touched.mobileNumber && errors.mobileNumber}
+                />
+                <TextField
+                  label="Area"
+                  name="area"
+                  fullWidth
+                  value={values.area}
+                  onChange={(e) => setFieldValue("area", e.target.value)}
+                  error={touched.area && Boolean(errors.area)}
+                  helperText={touched.area && errors.area}
+                />
+                <TextField
+                  label="Age"
+                  name="age"
+                  fullWidth
+                  type="number"
+                  value={values.age}
+                  onChange={(e) => setFieldValue("age", e.target.value)}
+                  error={touched.age && Boolean(errors.age)}
+                  helperText={touched.age && errors.age}
+                />
 
                 {/* Initiated Dropdown */}
                 <FormControl fullWidth>
                   <InputLabel>Initiated</InputLabel>
-                  <Select name="initiated" value={values.initiated} onChange={(e) => setFieldValue("initiated", e.target.value)} error={touched.initiated && Boolean(errors.initiated)}>
+                  <Select
+                    name="initiated"
+                    value={values.initiated}
+                    onChange={(e) => setFieldValue("initiated", e.target.value)}
+                    error={touched.initiated && Boolean(errors.initiated)}
+                  >
                     <MenuItem value={true}>Yes</MenuItem>
                     <MenuItem value={false}>No</MenuItem>
                   </Select>
                 </FormControl>
 
-                <Button type="submit" variant="contained" color="primary" fullWidth sx={{ fontSize: "1rem", padding: "12px", borderRadius: 2 }}>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  color="primary"
+                  fullWidth
+                  sx={{ fontSize: "1rem", padding: "12px", borderRadius: 2 }}
+                >
                   Submit
                 </Button>
               </Form>
@@ -134,14 +239,19 @@ const UserComponent = () => {
 
       {/* Fetch User Box */}
       <Box className="mt-6 p-4 border rounded shadow-md w-full max-w-md">
-        <Typography variant="h6" align="center" sx={{ fontWeight: "bold", color: "gray" }}>
+        <Typography
+          variant="h6"
+          align="center"
+          sx={{ fontWeight: "bold", color: "gray" }}
+        >
           Fetch User
         </Typography>
         <TextField
           label="Enter GRNO"
           value={grNo}
           onChange={(e) => setGrNo(e.target.value)}
-          fullWidth margin="normal"
+          fullWidth
+          margin="normal"
         />
         <Button
           variant="contained"
@@ -158,6 +268,41 @@ const UserComponent = () => {
         >
           Get User
         </Button>
+        {/* User Data Display Section */}
+        {userData && (
+          <div className="mt-6 bg-white p-6 rounded-lg shadow-md max-w-lg w-full">
+            <h3 className="text-2xl font-semibold text-center text-gray-800">
+              {userData.name}
+            </h3>
+            <div className="mt-4 space-y-2">
+              <p className="text-gray-700">
+                <strong>GR No:</strong> {userData.grNo}
+              </p>
+              <p className="text-gray-700">
+                <strong>Department:</strong> {userData.department}
+              </p>
+              <p className="text-gray-700">
+                <strong>Total Attendance:</strong> {userData.totalAttendance}
+              </p>
+              <p className="text-gray-700">
+                <strong>Mobile Number:</strong> {userData.mobileNumber}
+              </p>
+              <p className="text-gray-700">
+                <strong>Area:</strong> {userData.area}
+              </p>
+              <p className="text-gray-700">
+                <strong>Age:</strong> {userData.age}
+              </p>
+              <p
+                className={`text-sm font-semibold ${
+                  userData.isInitiated ? "text-green-600" : "text-red-500"
+                }`}
+              >
+                {userData.isInitiated ? "✅ Initiated" : "❌ Not Initiated"}
+              </p>
+            </div>
+          </div>
+        )}
       </Box>
     </div>
   );
