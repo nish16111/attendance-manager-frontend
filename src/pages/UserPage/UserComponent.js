@@ -141,7 +141,6 @@ const UserComponent = () => {
           label="Enter GRNO"
           value={grNo}
           onChange={(e) => setGrNo(e.target.value)}
-          onClick={fetchUserByGrNo}
           fullWidth margin="normal"
         />
         <Button
@@ -155,6 +154,7 @@ const UserComponent = () => {
             "&:hover": { backgroundColor: "darkcyan" },
           }}
           fullWidth
+          onClick={fetchUserByGrNo}
         >
           Get User
         </Button>
