@@ -13,6 +13,7 @@ import {
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
 import axios from "axios";
+import { toast } from "react-toastify";
 
 const UserComponent = () => {
   const [open, setOpen] = useState(false);
@@ -21,23 +22,43 @@ const UserComponent = () => {
 
   const [grNo, setGrNo] = useState("");
   const [userData, setUserData] = useState(null);
+  const [newUser, setNewUserData] = useState(null);
 
   const fetchUserByGrNo = async () => {
     if (!grNo) {
       return null;
     }
     try {
-      console.log("1. grNo: ", grNo);
       const res = await axios.get(
         `http://localhost:8080/home/users/fetchUserBygrNo?grNo=${grNo}`
       );
-      console.log("2. grNo: ", grNo);
-      console.log("response from fetchUserByGrNoAPI: ", res);
+      console.log(res)
+      // toast.success(res.status)
       setUserData(res.data);
     } catch (e) {
       console.log("Could not fetch User: ", e);
+      // toast.error("Could not fetch User")
     }
   };
+
+  const addUser = async(values, { resetForm }) => {
+    console.log("Form Data: ", values)
+    const newUserData = {
+      grNo: values.grNo,
+      name: values.name,
+      department: values.department,
+      totalAttendance: values.totalAttendance,
+      photo: values?.photo,
+      mobileNumber: values.mobileNumber,
+      area: values.area,
+      age: values.age,
+      isInitiated: values.isInitiated
+    }
+    
+    console.log("newUserData: " , newUserData)
+    resetForm()
+    handleClose()
+  }
 
   // Validation Schema
   const validationSchema = Yup.object({
@@ -50,7 +71,7 @@ const UserComponent = () => {
       .required("Mobile Number is required"),
     area: Yup.string().required("Area is required"),
     age: Yup.number().required("Age is required").min(1, "Invalid age"),
-    initiated: Yup.boolean().required("Initiated is required"),
+    isInitiated: Yup.boolean().required("Initiated is required"),
   });
 
   // Initial Values
@@ -109,11 +130,7 @@ const UserComponent = () => {
           <Formik
             initialValues={initialValues}
             validationSchema={validationSchema}
-            onSubmit={(values, { resetForm }) => {
-              console.log("Form Data: ", values);
-              resetForm();
-              handleClose();
-            }}
+            onSubmit={addUser}
           >
             {({ values, setFieldValue, errors, touched }) => (
               <Form
@@ -212,7 +229,7 @@ const UserComponent = () => {
                 <FormControl fullWidth>
                   <InputLabel>Initiated</InputLabel>
                   <Select
-                    name="initiated"
+                    name="isInitiated"
                     value={values.initiated}
                     onChange={(e) => setFieldValue("initiated", e.target.value)}
                     error={touched.initiated && Boolean(errors.initiated)}
@@ -228,6 +245,7 @@ const UserComponent = () => {
                   color="primary"
                   fullWidth
                   sx={{ fontSize: "1rem", padding: "12px", borderRadius: 2 }}
+                  // onClick={addUser}
                 >
                   Submit
                 </Button>
