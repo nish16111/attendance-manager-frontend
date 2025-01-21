@@ -2,11 +2,30 @@ import React, { useState } from "react";
 import { Button, Modal, Box, TextField, FormControl, InputLabel, Select, MenuItem, Typography } from "@mui/material";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
+import axios from "axios";
+
 
 const UserComponent = () => {
   const [open, setOpen] = useState(false);
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
+
+  const [grNo, setGrNo] = useState('');
+  const [userData, setUserData] = useState(null);
+
+  const fetchUserByGrNo = async () => {
+    if (!grNo) {
+      return null;
+    }
+    try {
+      const res = await axios.get(`http://localhost:8080/home/users/fetchUserBygrNo/${grNo}`)
+      console.log("response from fetchUserByGrNoAPI: ", res);
+      setUserData(res.data);
+    } catch(e) {
+      console.log("Could not fetch User: ", e)
+    }
+    
+  }
 
   // Validation Schema
   const validationSchema = Yup.object({
@@ -118,7 +137,13 @@ const UserComponent = () => {
         <Typography variant="h6" align="center" sx={{ fontWeight: "bold", color: "gray" }}>
           Fetch User
         </Typography>
-        <TextField label="Enter GRNO" fullWidth margin="normal" />
+        <TextField
+          label="Enter GRNO"
+          value={grNo}
+          onChange={(e) => setGrNo(e.target.value)}
+          onClick={fetchUserByGrNo}
+          fullWidth margin="normal"
+        />
         <Button
           variant="contained"
           sx={{
