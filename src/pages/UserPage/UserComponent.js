@@ -14,6 +14,7 @@ import { Formik, Form } from "formik";
 import * as Yup from "yup";
 import axios from "axios";
 import { toast } from "react-toastify";
+import { createUser } from "../../API/HomeAPI";
 
 const UserComponent = () => {
   const [open, setOpen] = useState(false);
@@ -52,10 +53,19 @@ const UserComponent = () => {
       mobileNumber: values.mobileNumber,
       area: values.area,
       age: values.age,
-      isInitiated: values.isInitiated
+      isInitiated: values.initiated
     }
     
     console.log("newUserData: " , newUserData)
+
+    try{
+
+      const res = await createUser(newUserData);
+      console.log("response from createUserApi: ", res);
+    } catch (e) {
+      console.log("Could not add User: ", e)
+    }
+    
     resetForm()
     handleClose()
   }
@@ -129,7 +139,7 @@ const UserComponent = () => {
           </Typography>
           <Formik
             initialValues={initialValues}
-            validationSchema={validationSchema}
+            // validationSchema={validationSchema}
             onSubmit={addUser}
           >
             {({ values, setFieldValue, errors, touched }) => (
@@ -171,7 +181,7 @@ const UserComponent = () => {
                   label="Total Attendance"
                   name="totalAttendance"
                   fullWidth
-                  type="number"
+                  // type="number"
                   value={values.totalAttendance}
                   onChange={(e) =>
                     setFieldValue("totalAttendance", e.target.value)
@@ -218,7 +228,8 @@ const UserComponent = () => {
                   label="Age"
                   name="age"
                   fullWidth
-                  type="number"
+                  // type="number"
+                  
                   value={values.age}
                   onChange={(e) => setFieldValue("age", e.target.value)}
                   error={touched.age && Boolean(errors.age)}
