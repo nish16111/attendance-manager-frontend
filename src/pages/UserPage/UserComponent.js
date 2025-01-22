@@ -42,7 +42,7 @@ const UserComponent = () => {
     }
   };
 
-  const addUser = async(values, { resetForm }) => {
+  const addUser = async (values, { resetForm }) => {
     console.log("Form Data: ", values)
     const newUserData = {
       grNo: values.grNo,
@@ -55,17 +55,17 @@ const UserComponent = () => {
       age: values.age,
       isInitiated: values.initiated
     }
-    
-    console.log("newUserData: " , newUserData)
 
-    try{
+    console.log("newUserData: ", newUserData)
+
+    try {
 
       const res = await createUser(newUserData);
       console.log("response from createUserApi: ", res);
     } catch (e) {
       console.log("Could not add User: ", e)
     }
-    
+
     resetForm()
     handleClose()
   }
@@ -229,7 +229,7 @@ const UserComponent = () => {
                   name="age"
                   fullWidth
                   // type="number"
-                  
+
                   value={values.age}
                   onChange={(e) => setFieldValue("age", e.target.value)}
                   error={touched.age && Boolean(errors.age)}
@@ -256,7 +256,7 @@ const UserComponent = () => {
                   color="primary"
                   fullWidth
                   sx={{ fontSize: "1rem", padding: "12px", borderRadius: 2 }}
-                  // onClick={addUser}
+                // onClick={addUser}
                 >
                   Submit
                 </Button>
@@ -322,10 +322,14 @@ const UserComponent = () => {
               <p className="text-gray-700">
                 <strong>Age:</strong> {userData.age}
               </p>
+              {userData.photo && (
+                <p className="text-gray-700">
+                  <strong>Photo:</strong> {userData.photo}
+                </p>
+              )}
               <p
-                className={`text-sm font-semibold ${
-                  userData.isInitiated ? "text-green-600" : "text-red-500"
-                }`}
+                className={`text-sm font-semibold ${userData.isInitiated ? "text-green-600" : "text-red-500"
+                  }`}
               >
                 {userData.isInitiated ? "✅ Initiated" : "❌ Not Initiated"}
               </p>
