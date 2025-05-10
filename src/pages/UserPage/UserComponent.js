@@ -9,14 +9,20 @@ import {
   Select,
   MenuItem,
   Typography,
+  CircularProgress,
+  IconButton,
 } from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
 import axios from "axios";
-import { toast } from "react-toastify";
-import { createUser } from "../../API/HomeAPI";
+import { toast, ToastContainer } from "react-toastify";
 
 const UserComponent = () => {
+
+  const BACKEND_URL_IP = "http://192.168.1.6:8080"
+  const BACKEND_URL_LOCALHOST = "http://localhost:8080"
+
   const [open, setOpen] = useState(false);
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
@@ -24,6 +30,10 @@ const UserComponent = () => {
   const [grNo, setGrNo] = useState("");
   const [userData, setUserData] = useState(null);
   const [newUser, setNewUserData] = useState(null);
+
+  const [photo, setPhoto] = useState(null);
+  const [photoLoading, setPhotoLoading] = useState(false);
+  const [photoError, setPhotoError] = useState(null);
 
   const fetchUserByGrNo = async () => {
     if (!grNo) {
@@ -33,42 +43,59 @@ const UserComponent = () => {
       const res = await axios.get(
         `http://localhost:8080/home/users/fetchUserBygrNo?grNo=${grNo}`
       );
-      console.log(res)
-      // toast.success(res.status)
+      console.log("response from fetchUserByGrno API is: ", res);
+      toast.success("User Fetched Sucessfully")
       setUserData(res.data);
     } catch (e) {
       console.log("Could not fetch User: ", e);
-      // toast.error("Could not fetch User")
+      toast.error("Could not fetch User")
     }
   };
 
   const addUser = async (values, { resetForm }) => {
-    console.log("Form Data: ", values)
-    const newUserData = {
-      grNo: values.grNo,
-      name: values.name,
-      department: values.department,
-      totalAttendance: values.totalAttendance,
-      photo: values?.photo,
-      mobileNumber: values.mobileNumber,
-      area: values.area,
-      age: values.age,
-      isInitiated: values.initiated
+    console.log("Form Values: ", values);
+
+    const formData = new FormData();
+    formData.append("grNo", values.grNo);
+    formData.append("name", values.name);
+    formData.append("department", values.department);
+    formData.append("subDepartment", values.subDepartment);
+    formData.append("totalAttendance", values.totalAttendance);
+    formData.append("mobileNumber", values.mobileNumber);
+    formData.append("area", values.area);
+    formData.append("age", values.age);
+    formData.append("isInitiated", values.initiated);
+    formData.append("remarks", values.remarks);
+    formData.append("email", values.email);
+
+    // Append photo file
+    if (photo) {
+      formData.append("photo", photo);
     }
 
-    console.log("newUserData: ", newUserData)
+    console.log("formData: ", formData);
 
     try {
+      const res = await axios.post(
+        "http://localhost:8080/home/users/createUser",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
 
-      const res = await createUser(newUserData);
-      console.log("response from createUserApi: ", res);
+      console.log("response from createUser API: ", res);
+      handleClose();
+      toast.success("user added successfully")
+      resetForm();
+      setPhoto(null);
     } catch (e) {
-      console.log("Could not add User: ", e)
+      console.error("Could not create user: ", e);
+      toast.error("Could not add user")
     }
-
-    resetForm()
-    handleClose()
-  }
+  };
 
   // Validation Schema
   const validationSchema = Yup.object({
@@ -89,22 +116,30 @@ const UserComponent = () => {
     grNo: "",
     name: "",
     department: "",
+    subDepartment: "",
     totalAttendance: "",
-    photo: null,
+    photo: photo,
     mobileNumber: "",
     area: "",
     age: "",
     initiated: "",
+    remarks: "",
+    email: "",
   };
 
   return (
-    <div className="p-6 flex flex-col items-center md:items-start relative">
-      {/* Add User Button (Top Left, Above Fetch Box) */}
+    <div className="p-4 md:p-6 flex flex-col items-center md:items-start relative w-full">
+      <ToastContainer position="top-center" autoClose={3000} />
+      {/* Add User Button (Centered on Mobile, Left on Desktop) */}
       <Button
         variant="contained"
         color="primary"
         onClick={handleOpen}
-        sx={{ alignSelf: "flex-start", mb: 2 }}
+        sx={{
+          alignSelf: { xs: "center", md: "flex-start" },
+          mb: 2,
+          width: { xs: "100%", sm: "auto" },
+        }}
       >
         Add User
       </Button>
@@ -117,12 +152,12 @@ const UserComponent = () => {
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            width: "90%",
-            maxWidth: 450,
-            maxHeight: "80vh", // Shorter modal height
+            width: "95%",
+            maxWidth: 400,
+            maxHeight: "85vh",
             bgcolor: "white",
-            p: 4,
-            borderRadius: 3,
+            p: 3,
+            borderRadius: 2,
             boxShadow: 10,
             display: "flex",
             flexDirection: "column",
@@ -130,8 +165,21 @@ const UserComponent = () => {
             overflowY: "auto",
           }}
         >
+          {/* ❌ button */}
+          <IconButton
+            onClick={handleClose}
+            sx={{
+              position: "absolute",
+              top: 8,
+              right: 8,
+              color: (theme) => theme.palette.grey[500],
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+
           <Typography
-            variant="h5"
+            variant="h6"
             align="center"
             sx={{ fontWeight: "bold", color: "#1976d2" }}
           >
@@ -147,9 +195,24 @@ const UserComponent = () => {
                 style={{
                   display: "flex",
                   flexDirection: "column",
-                  gap: "16px",
+                  gap: "12px",
                 }}
               >
+                {/* File Upload Section */}
+                <input
+                  type="file"
+                  name="photo"
+                  onChange={(event) => {
+                    const file = event.target.files[0];
+                    if (file) setPhoto(file); // Just store the file
+                  }}
+                />
+                {photo && (
+                  <Typography sx={{ mt: 2, color: "green" }}>
+                    Photo selected: {photo.name}
+                  </Typography>
+                )}
+
                 <TextField
                   label="GRNO"
                   name="grNo"
@@ -178,6 +241,15 @@ const UserComponent = () => {
                   helperText={touched.department && errors.department}
                 />
                 <TextField
+                  label="Sub - Department"
+                  name="subDepartment"
+                  fullWidth
+                  value={values.subDepartment}
+                  onChange={(e) => setFieldValue("subDepartment", e.target.value)}
+                  error={touched.department && Boolean(errors.department)}
+                  helperText={touched.department && errors.department}
+                />
+                <TextField
                   label="Total Attendance"
                   name="totalAttendance"
                   fullWidth
@@ -192,18 +264,6 @@ const UserComponent = () => {
                   helperText={touched.totalAttendance && errors.totalAttendance}
                 />
 
-                {/* File Upload Section */}
-                <Typography variant="body1" sx={{ fontWeight: "bold", mt: 2 }}>
-                  Upload Photo
-                </Typography>
-                <input
-                  type="file"
-                  name="photo"
-                  onChange={(event) =>
-                    setFieldValue("photo", event.target.files[0])
-                  }
-                />
-
                 <TextField
                   label="Mobile Number"
                   name="mobileNumber"
@@ -216,7 +276,7 @@ const UserComponent = () => {
                   helperText={touched.mobileNumber && errors.mobileNumber}
                 />
                 <TextField
-                  label="Area"
+                  label="Address"
                   name="area"
                   fullWidth
                   value={values.area}
@@ -232,6 +292,26 @@ const UserComponent = () => {
 
                   value={values.age}
                   onChange={(e) => setFieldValue("age", e.target.value)}
+                  error={touched.age && Boolean(errors.age)}
+                  helperText={touched.age && errors.age}
+                />
+                <TextField
+                  label="Remarks"
+                  name="remarks"
+                  fullWidth
+                  type="text"
+                  value={values.remarks}
+                  onChange={(e) => setFieldValue("remarks", e.target.value)}
+                  error={touched.age && Boolean(errors.age)}
+                  helperText={touched.age && errors.age}
+                />
+                <TextField
+                  label="Email"
+                  name="email"
+                  fullWidth
+                  type="text"
+                  value={values.email}
+                  onChange={(e) => setFieldValue("email", e.target.value)}
                   error={touched.age && Boolean(errors.age)}
                   helperText={touched.age && errors.age}
                 />
@@ -255,8 +335,7 @@ const UserComponent = () => {
                   variant="contained"
                   color="primary"
                   fullWidth
-                  sx={{ fontSize: "1rem", padding: "12px", borderRadius: 2 }}
-                // onClick={addUser}
+                  sx={{ fontSize: "1rem", p: 1.5 }}
                 >
                   Submit
                 </Button>
@@ -267,7 +346,7 @@ const UserComponent = () => {
       </Modal>
 
       {/* Fetch User Box */}
-      <Box className="mt-6 p-4 border rounded shadow-md w-full max-w-md">
+      <Box className="mt-6 p-4 border rounded shadow-md w-full max-w-3xl mx-auto">
         <Typography
           variant="h6"
           align="center"
@@ -275,6 +354,7 @@ const UserComponent = () => {
         >
           Fetch User
         </Typography>
+
         <TextField
           label="Enter GRNO"
           value={grNo}
@@ -282,6 +362,7 @@ const UserComponent = () => {
           fullWidth
           margin="normal"
         />
+
         <Button
           variant="contained"
           sx={{
@@ -297,43 +378,60 @@ const UserComponent = () => {
         >
           Get User
         </Button>
+
         {/* User Data Display Section */}
         {userData && (
-          <div className="mt-6 bg-white p-6 rounded-lg shadow-md max-w-lg w-full">
-            <h3 className="text-2xl font-semibold text-center text-gray-800">
+          <div className="mt-6 bg-white p-6 rounded-lg shadow-md w-full">
+            <h3 className="text-lg md:text-2xl font-semibold text-center text-gray-800">
               {userData.name}
             </h3>
-            <div className="mt-4 space-y-2">
-              <p className="text-gray-700">
+
+            <div className="mt-4 space-y-2 text-sm md:text-base">
+              <p>
                 <strong>GR No:</strong> {userData.grNo}
               </p>
-              <p className="text-gray-700">
+              <p>
                 <strong>Department:</strong> {userData.department}
               </p>
-              <p className="text-gray-700">
+              <p>
+                <strong>Sub - Department:</strong> {userData.subDepartment}
+              </p>
+              <p>
                 <strong>Total Attendance:</strong> {userData.totalAttendance}
               </p>
-              <p className="text-gray-700">
+              <p>
                 <strong>Mobile Number:</strong> {userData.mobileNumber}
               </p>
-              <p className="text-gray-700">
-                <strong>Area:</strong> {userData.area}
+              <p>
+                <strong>Address:</strong> {userData.area}
               </p>
-              <p className="text-gray-700">
+              <p>
                 <strong>Age:</strong> {userData.age}
               </p>
-              {userData.photo && (
-                <p className="text-gray-700">
-                  <strong>Photo:</strong> {userData.photo}
-                </p>
-              )}
+              <p>
+                <strong>Remarks:</strong> {userData.remarks}
+              </p>
+              <p>
+                <strong>Email:</strong> {userData.email}
+              </p>
               <p
-                className={`text-sm font-semibold ${userData.isInitiated ? "text-green-600" : "text-red-500"
-                  }`}
+                className={`font-semibold ${
+                  userData.initiated ? "text-green-600" : "text-red-500"
+                }`}
               >
-                {userData.isInitiated ? "✅ Initiated" : "❌ Not Initiated"}
+                {userData.initiated ? "✅ Initiated" : "❌ Not Initiated"}
               </p>
             </div>
+
+            {userData.photoBase64 && (
+              <div className="flex justify-center mt-6">
+                <img
+                  src={`data:image/jpeg;base64,${userData.photoBase64}`}
+                  alt="User"
+                  className="w-60 max-w-full max-h-64 object-contain border rounded shadow-md"
+                />
+              </div>
+            )}
           </div>
         )}
       </Box>
