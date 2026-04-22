@@ -1,441 +1,385 @@
-import React, { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Button,
-  Modal,
+  Avatar,
   Box,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Typography,
+  Button,
+  Chip,
   CircularProgress,
-  IconButton,
+  Container,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
 } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
-import { Formik, Form } from "formik";
-import * as Yup from "yup";
-import axios from "axios";
-import { toast, ToastContainer } from "react-toastify";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
+import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
+import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
+import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
+import { toast } from "react-toastify";
+import UsersTable from "../../MrtTable/UserTable";
+import {
+  createUser,
+  extractApiError,
+  fetchAllUsers,
+  fetchUserByGrNo,
+  updateUser,
+} from "../../API/HomeAPI";
+import { useAuth } from "../../auth/AuthContext";
+import UserFormDialog from "./components/UserFormDialog";
+import UserDetailsCard from "./components/UserDetailsCard";
+import {
+  EMPTY_USER_FORM,
+  buildUserFormData,
+  toFormValues,
+} from "./userFormConfig";
 
 const UserComponent = () => {
+  const { logout, user } = useAuth();
+  const [users, setUsers] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
 
-  const BACKEND_URL_IP = "http://192.168.1.6:8080"
-  const BACKEND_URL_LOCALHOST = "http://localhost:8080"
+  const [searchGrNo, setSearchGrNo] = useState("");
 
-  const [open, setOpen] = useState(false);
-  const handleOpen = () => setOpen(true);
-  const handleClose = () => setOpen(false);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [formSubmitting, setFormSubmitting] = useState(false);
 
-  const [grNo, setGrNo] = useState("");
-  const [userData, setUserData] = useState(null);
-  const [newUser, setNewUserData] = useState(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState("create");
+  const [editingUser, setEditingUser] = useState(null);
 
-  const [photo, setPhoto] = useState(null);
-  const [photoLoading, setPhotoLoading] = useState(false);
-  const [photoError, setPhotoError] = useState(null);
+  const loadUsers = useCallback(async () => {
+    setUsersLoading(true);
 
-  const fetchUserByGrNo = async () => {
-    if (!grNo) {
-      return null;
-    }
     try {
-      const res = await axios.get(
-        `http://localhost:8080/home/users/fetchUserBygrNo?grNo=${grNo}`
-      );
-      console.log("response from fetchUserByGrno API is: ", res);
-      toast.success("User Fetched Sucessfully")
-      setUserData(res.data);
-    } catch (e) {
-      console.log("Could not fetch User: ", e);
-      toast.error("Could not fetch User")
+      const response = await fetchAllUsers();
+      setUsers(Array.isArray(response) ? response : []);
+    } catch (error) {
+      toast.error(extractApiError(error, "Could not load users"));
+    } finally {
+      setUsersLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
+
+  const dialogInitialValues = useMemo(() => {
+    if (dialogMode === "edit" && editingUser) {
+      return toFormValues(editingUser);
+    }
+
+    return EMPTY_USER_FORM;
+  }, [dialogMode, editingUser]);
+
+  const openCreateDialog = () => {
+    setDialogMode("create");
+    setEditingUser(null);
+    setDialogOpen(true);
+  };
+
+  const openEditDialog = (user) => {
+    setDialogMode("edit");
+    setEditingUser(user);
+    setDialogOpen(true);
+  };
+
+  const closeDialog = () => {
+    if (!formSubmitting) {
+      setDialogOpen(false);
     }
   };
 
-  const addUser = async (values, { resetForm }) => {
-    console.log("Form Values: ", values);
+  const refreshSelectedUser = useCallback(
+    async (grNo) => {
+      if (!grNo) {
+        return;
+      }
 
-    const formData = new FormData();
-    formData.append("grNo", values.grNo);
-    formData.append("name", values.name);
-    formData.append("department", values.department);
-    formData.append("subDepartment", values.subDepartment);
-    formData.append("totalAttendance", values.totalAttendance);
-    formData.append("mobileNumber", values.mobileNumber);
-    formData.append("area", values.area);
-    formData.append("age", values.age);
-    formData.append("isInitiated", values.initiated);
-    formData.append("remarks", values.remarks);
-    formData.append("email", values.email);
+      try {
+        const response = await fetchUserByGrNo(grNo);
+        setSelectedUser(response);
+      } catch {
+        setSelectedUser(null);
+      }
+    },
+    [setSelectedUser]
+  );
 
-    // Append photo file
-    if (photo) {
-      formData.append("photo", photo);
-    }
-
-    console.log("formData: ", formData);
+  const handleSubmitUser = async (values, photoFile, { resetForm }) => {
+    setFormSubmitting(true);
 
     try {
-      const res = await axios.post(
-        "http://localhost:8080/home/users/createUser",
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+      const formData = buildUserFormData(values, photoFile);
 
-      console.log("response from createUser API: ", res);
-      handleClose();
-      toast.success("user added successfully")
+      if (dialogMode === "edit") {
+        await updateUser(editingUser?.grNo || values.grNo, formData);
+        toast.success("User updated successfully");
+      } else {
+        await createUser(formData);
+        toast.success("User created successfully");
+      }
+
+      setDialogOpen(false);
       resetForm();
-      setPhoto(null);
-    } catch (e) {
-      console.error("Could not create user: ", e);
-      toast.error("Could not add user")
+
+      await loadUsers();
+      await refreshSelectedUser(values.grNo);
+    } catch (error) {
+      toast.error(
+        extractApiError(
+          error,
+          dialogMode === "edit"
+            ? "Could not update user"
+            : "Could not create user"
+        )
+      );
+    } finally {
+      setFormSubmitting(false);
     }
   };
 
-  // Validation Schema
-  const validationSchema = Yup.object({
-    grNo: Yup.string().required("GRNO is required"),
-    name: Yup.string().required("Name is required"),
-    department: Yup.string().required("Department is required"),
-    totalAttendance: Yup.number().required("Total Attendance is required"),
-    mobileNumber: Yup.string()
-      .matches(/^\d{10}$/, "Mobile number must be 10 digits")
-      .required("Mobile Number is required"),
-    area: Yup.string().required("Area is required"),
-    age: Yup.number().required("Age is required").min(1, "Invalid age"),
-    isInitiated: Yup.boolean().required("Initiated is required"),
-  });
+  const handleSearch = async () => {
+    const trimmedGrNo = searchGrNo.trim();
 
-  // Initial Values
-  const initialValues = {
-    grNo: "",
-    name: "",
-    department: "",
-    subDepartment: "",
-    totalAttendance: "",
-    photo: photo,
-    mobileNumber: "",
-    area: "",
-    age: "",
-    initiated: "",
-    remarks: "",
-    email: "",
+    if (!trimmedGrNo) {
+      toast.info("Enter a GR number first");
+      return;
+    }
+
+    setSearchLoading(true);
+
+    try {
+      const response = await fetchUserByGrNo(trimmedGrNo);
+      setSelectedUser(response);
+      toast.success("User fetched successfully");
+    } catch (error) {
+      setSelectedUser(null);
+      toast.error(extractApiError(error, "User not found"));
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const handleEditFromTable = (user) => {
+    setSelectedUser(user);
+    openEditDialog(user);
   };
 
   return (
-    <div className="p-4 md:p-6 flex flex-col items-center md:items-start relative w-full">
-      <ToastContainer position="top-center" autoClose={3000} />
-      {/* Add User Button (Centered on Mobile, Left on Desktop) */}
-      <Button
-        variant="contained"
-        color="primary"
-        onClick={handleOpen}
-        sx={{
-          alignSelf: { xs: "center", md: "flex-start" },
-          mb: 2,
-          width: { xs: "100%", sm: "auto" },
-        }}
-      >
-        Add User
-      </Button>
-
-      {/* Modal for Adding User */}
-      <Modal open={open} onClose={handleClose}>
-        <Box
+    <Box
+      sx={{
+        minHeight: "100vh",
+        py: { xs: 3, md: 5 },
+      }}
+    >
+      <Container maxWidth="xl">
+        <Paper
+          elevation={0}
           sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: "95%",
-            maxWidth: 400,
-            maxHeight: "85vh",
-            bgcolor: "white",
-            p: 3,
-            borderRadius: 2,
-            boxShadow: 10,
-            display: "flex",
-            flexDirection: "column",
-            gap: 2,
-            overflowY: "auto",
+            p: { xs: 2, md: 3 },
+            borderRadius: 5,
+            border: "1px solid",
+            borderColor: "divider",
+            backgroundColor: "rgba(255,255,255,0.88)",
+            backdropFilter: "blur(6px)",
           }}
         >
-          {/* ❌ button */}
-          <IconButton
-            onClick={handleClose}
-            sx={{
-              position: "absolute",
-              top: 8,
-              right: 8,
-              color: (theme) => theme.palette.grey[500],
-            }}
-          >
-            <CloseIcon />
-          </IconButton>
-
-          <Typography
-            variant="h6"
-            align="center"
-            sx={{ fontWeight: "bold", color: "#1976d2" }}
-          >
-            Add User
-          </Typography>
-          <Formik
-            initialValues={initialValues}
-            // validationSchema={validationSchema}
-            onSubmit={addUser}
-          >
-            {({ values, setFieldValue, errors, touched }) => (
-              <Form
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "12px",
-                }}
-              >
-                {/* File Upload Section */}
-                <input
-                  type="file"
-                  name="photo"
-                  onChange={(event) => {
-                    const file = event.target.files[0];
-                    if (file) setPhoto(file); // Just store the file
+          <Stack spacing={3}>
+            <Stack
+              direction={{ xs: "column", md: "row" }}
+              spacing={2}
+              alignItems={{ xs: "flex-start", md: "center" }}
+              justifyContent="space-between"
+            >
+              <Stack spacing={1.25}>
+                <Chip
+                  icon={
+                    <Avatar
+                      sx={{
+                        width: 28,
+                        height: 28,
+                        bgcolor: "primary.main",
+                        color: "common.white",
+                        fontSize: "0.8rem",
+                        fontWeight: 800,
+                      }}
+                    >
+                      {(user?.username || user?.email || "A")[0]?.toUpperCase()}
+                    </Avatar>
+                  }
+                  label={user?.username || user?.email || "Authenticated admin"}
+                  sx={{
+                    alignSelf: "flex-start",
+                    borderRadius: 99,
+                    py: 0.4,
+                    px: 0.4,
+                    bgcolor: "rgba(12,122,107,0.08)",
+                    "& .MuiChip-label": {
+                      fontWeight: 700,
+                    },
                   }}
                 />
-                {photo && (
-                  <Typography sx={{ mt: 2, color: "green" }}>
-                    Photo selected: {photo.name}
+                <Box>
+                  <Typography variant="h4" sx={{ fontWeight: 800, mb: 0.5 }}>
+                    Attendance User Manager
                   </Typography>
-                )}
+                  <Typography color="text.secondary">
+                    Manage records, fetch users quickly by GR number, and edit
+                    data from a single secure workspace.
+                  </Typography>
+                </Box>
+              </Stack>
 
-                <TextField
-                  label="GRNO"
-                  name="grNo"
-                  fullWidth
-                  value={values.grNo}
-                  onChange={(e) => setFieldValue("grNo", e.target.value)}
-                  error={touched.grNo && Boolean(errors.grNo)}
-                  helperText={touched.grNo && errors.grNo}
-                />
-                <TextField
-                  label="Name"
-                  name="name"
-                  fullWidth
-                  value={values.name}
-                  onChange={(e) => setFieldValue("name", e.target.value)}
-                  error={touched.name && Boolean(errors.name)}
-                  helperText={touched.name && errors.name}
-                />
-                <TextField
-                  label="Department"
-                  name="department"
-                  fullWidth
-                  value={values.department}
-                  onChange={(e) => setFieldValue("department", e.target.value)}
-                  error={touched.department && Boolean(errors.department)}
-                  helperText={touched.department && errors.department}
-                />
-                <TextField
-                  label="Sub - Department"
-                  name="subDepartment"
-                  fullWidth
-                  value={values.subDepartment}
-                  onChange={(e) => setFieldValue("subDepartment", e.target.value)}
-                  error={touched.department && Boolean(errors.department)}
-                  helperText={touched.department && errors.department}
-                />
-                <TextField
-                  label="Total Attendance"
-                  name="totalAttendance"
-                  fullWidth
-                  // type="number"
-                  value={values.totalAttendance}
-                  onChange={(e) =>
-                    setFieldValue("totalAttendance", e.target.value)
-                  }
-                  error={
-                    touched.totalAttendance && Boolean(errors.totalAttendance)
-                  }
-                  helperText={touched.totalAttendance && errors.totalAttendance}
-                />
-
-                <TextField
-                  label="Mobile Number"
-                  name="mobileNumber"
-                  fullWidth
-                  value={values.mobileNumber}
-                  onChange={(e) =>
-                    setFieldValue("mobileNumber", e.target.value)
-                  }
-                  error={touched.mobileNumber && Boolean(errors.mobileNumber)}
-                  helperText={touched.mobileNumber && errors.mobileNumber}
-                />
-                <TextField
-                  label="Address"
-                  name="area"
-                  fullWidth
-                  value={values.area}
-                  onChange={(e) => setFieldValue("area", e.target.value)}
-                  error={touched.area && Boolean(errors.area)}
-                  helperText={touched.area && errors.area}
-                />
-                <TextField
-                  label="Age"
-                  name="age"
-                  fullWidth
-                  // type="number"
-
-                  value={values.age}
-                  onChange={(e) => setFieldValue("age", e.target.value)}
-                  error={touched.age && Boolean(errors.age)}
-                  helperText={touched.age && errors.age}
-                />
-                <TextField
-                  label="Remarks"
-                  name="remarks"
-                  fullWidth
-                  type="text"
-                  value={values.remarks}
-                  onChange={(e) => setFieldValue("remarks", e.target.value)}
-                  error={touched.age && Boolean(errors.age)}
-                  helperText={touched.age && errors.age}
-                />
-                <TextField
-                  label="Email"
-                  name="email"
-                  fullWidth
-                  type="text"
-                  value={values.email}
-                  onChange={(e) => setFieldValue("email", e.target.value)}
-                  error={touched.age && Boolean(errors.age)}
-                  helperText={touched.age && errors.age}
-                />
-
-                {/* Initiated Dropdown */}
-                <FormControl fullWidth>
-                  <InputLabel>Initiated</InputLabel>
-                  <Select
-                    name="isInitiated"
-                    value={values.initiated}
-                    onChange={(e) => setFieldValue("initiated", e.target.value)}
-                    error={touched.initiated && Boolean(errors.initiated)}
-                  >
-                    <MenuItem value={true}>Yes</MenuItem>
-                    <MenuItem value={false}>No</MenuItem>
-                  </Select>
-                </FormControl>
-
-                <Button
-                  type="submit"
-                  variant="contained"
-                  color="primary"
-                  fullWidth
-                  sx={{ fontSize: "1rem", p: 1.5 }}
-                >
-                  Submit
-                </Button>
-              </Form>
-            )}
-          </Formik>
-        </Box>
-      </Modal>
-
-      {/* Fetch User Box */}
-      <Box className="mt-6 p-4 border rounded shadow-md w-full max-w-3xl mx-auto">
-        <Typography
-          variant="h6"
-          align="center"
-          sx={{ fontWeight: "bold", color: "gray" }}
-        >
-          Fetch User
-        </Typography>
-
-        <TextField
-          label="Enter GRNO"
-          value={grNo}
-          onChange={(e) => setGrNo(e.target.value)}
-          fullWidth
-          margin="normal"
-        />
-
-        <Button
-          variant="contained"
-          sx={{
-            backgroundColor: "teal",
-            color: "white",
-            fontWeight: "bold",
-            padding: "10px",
-            borderRadius: 2,
-            "&:hover": { backgroundColor: "darkcyan" },
-          }}
-          fullWidth
-          onClick={fetchUserByGrNo}
-        >
-          Get User
-        </Button>
-
-        {/* User Data Display Section */}
-        {userData && (
-          <div className="mt-6 bg-white p-6 rounded-lg shadow-md w-full">
-            <h3 className="text-lg md:text-2xl font-semibold text-center text-gray-800">
-              {userData.name}
-            </h3>
-
-            <div className="mt-4 space-y-2 text-sm md:text-base">
-              <p>
-                <strong>GR No:</strong> {userData.grNo}
-              </p>
-              <p>
-                <strong>Department:</strong> {userData.department}
-              </p>
-              <p>
-                <strong>Sub - Department:</strong> {userData.subDepartment}
-              </p>
-              <p>
-                <strong>Total Attendance:</strong> {userData.totalAttendance}
-              </p>
-              <p>
-                <strong>Mobile Number:</strong> {userData.mobileNumber}
-              </p>
-              <p>
-                <strong>Address:</strong> {userData.area}
-              </p>
-              <p>
-                <strong>Age:</strong> {userData.age}
-              </p>
-              <p>
-                <strong>Remarks:</strong> {userData.remarks}
-              </p>
-              <p>
-                <strong>Email:</strong> {userData.email}
-              </p>
-              <p
-                className={`font-semibold ${
-                  userData.initiated ? "text-green-600" : "text-red-500"
-                }`}
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={1.5}
+                width={{ xs: "100%", md: "auto" }}
               >
-                {userData.initiated ? "✅ Initiated" : "❌ Not Initiated"}
-              </p>
-            </div>
+                <Button
+                  variant="outlined"
+                  startIcon={<RefreshRoundedIcon />}
+                  onClick={loadUsers}
+                  disabled={usersLoading}
+                  fullWidth
+                >
+                  Refresh
+                </Button>
+                <Button
+                  variant="contained"
+                  startIcon={<AddRoundedIcon />}
+                  onClick={openCreateDialog}
+                  fullWidth
+                >
+                  Add User
+                </Button>
+                <Button
+                  color="secondary"
+                  variant="text"
+                  startIcon={<LogoutRoundedIcon />}
+                  onClick={logout}
+                  fullWidth
+                >
+                  Logout
+                </Button>
+              </Stack>
+            </Stack>
 
-            {userData.photoBase64 && (
-              <div className="flex justify-center mt-6">
-                <img
-                  src={`data:image/jpeg;base64,${userData.photoBase64}`}
-                  alt="User"
-                  className="w-60 max-w-full max-h-64 object-contain border rounded shadow-md"
-                />
-              </div>
-            )}
-          </div>
-        )}
-      </Box>
-    </div>
+            <Paper
+              elevation={0}
+              sx={{
+                p: { xs: 2, md: 2.5 },
+                borderRadius: 4,
+                border: "1px solid",
+                borderColor: "divider",
+                background:
+                  "linear-gradient(135deg, rgba(247,251,255,0.88) 0%, rgba(242,252,247,0.9) 100%)",
+              }}
+            >
+              <Stack
+                direction={{ xs: "column", lg: "row" }}
+                spacing={2}
+                justifyContent="space-between"
+                alignItems={{ xs: "stretch", lg: "center" }}
+              >
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
+                    Quick lookup
+                  </Typography>
+                  <Typography color="text.secondary">
+                    Search any user by GR number and open the editable detail view
+                    instantly.
+                  </Typography>
+                </Box>
+
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  spacing={1.5}
+                  alignItems={{ xs: "stretch", sm: "center" }}
+                  width={{ xs: "100%", lg: "auto" }}
+                >
+                  <TextField
+                    fullWidth
+                    label="Find user by GR number"
+                    placeholder="Example: 1023"
+                    value={searchGrNo}
+                    onChange={(event) => setSearchGrNo(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        handleSearch();
+                      }
+                    }}
+                    sx={{ minWidth: { sm: 300, lg: 340 } }}
+                  />
+                  <Button
+                    variant="contained"
+                    startIcon={
+                      searchLoading ? (
+                        <CircularProgress size={16} color="inherit" />
+                      ) : (
+                        <SearchRoundedIcon />
+                      )
+                    }
+                    onClick={handleSearch}
+                    disabled={searchLoading}
+                    sx={{ minWidth: { xs: "100%", sm: 150 } }}
+                  >
+                    {searchLoading ? "Searching" : "Get User"}
+                  </Button>
+                </Stack>
+              </Stack>
+            </Paper>
+
+            <Stack
+              direction={{ xs: "column", md: "row" }}
+              spacing={1.5}
+              useFlexGap
+              flexWrap="wrap"
+            >
+              <Chip
+                color="primary"
+                variant="outlined"
+                label={`${users.length} total users`}
+              />
+              <Chip
+                color="success"
+                variant="outlined"
+                label={`${users.filter((entry) => entry.initiated || entry.isInitiated).length} initiated`}
+              />
+              <Chip
+                color="secondary"
+                variant="outlined"
+                label="JWT protected session"
+              />
+            </Stack>
+
+            {selectedUser ? (
+              <UserDetailsCard
+                user={selectedUser}
+                onEdit={() => openEditDialog(selectedUser)}
+              />
+            ) : null}
+
+            <UsersTable
+              users={users}
+              onEdit={handleEditFromTable}
+              isLoading={usersLoading}
+            />
+          </Stack>
+        </Paper>
+      </Container>
+
+      <UserFormDialog
+        open={dialogOpen}
+        mode={dialogMode}
+        initialValues={dialogInitialValues}
+        onClose={closeDialog}
+        onSubmit={handleSubmitUser}
+        submitting={formSubmitting}
+      />
+    </Box>
   );
 };
 
