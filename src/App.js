@@ -10,26 +10,46 @@ import UserComponent from "./pages/UserPage/UserComponent";
 const appTheme = createTheme({
   palette: {
     primary: {
-      main: "#0c7a6b",
-      dark: "#08695c",
-      light: "#3e9d92",
+      main: "#7a1f2b",
+      dark: "#57131d",
+      light: "#a84859",
     },
     secondary: {
-      main: "#285f8f",
+      main: "#8c6a5a",
+    },
+    success: {
+      main: "#7f8f62",
     },
     background: {
-      default: "#edf4fb",
+      default: "#f8f2ef",
+      paper: "#fffdfb",
+    },
+    text: {
+      primary: "#2b1620",
+      secondary: "#6e555f",
     },
   },
   shape: {
-    borderRadius: 14,
+    borderRadius: 18,
   },
   typography: {
-    fontFamily: "'Manrope', 'Segoe UI', sans-serif",
-    h4: {
+    fontFamily: "'Fraunces', 'Manrope', 'Segoe UI', sans-serif",
+    h6: {
+      fontWeight: 700,
       letterSpacing: "-0.02em",
     },
+    h4: {
+      fontWeight: 800,
+      letterSpacing: "-0.02em",
+    },
+    body1: {
+      fontFamily: "'Manrope', 'Segoe UI', sans-serif",
+    },
+    body2: {
+      fontFamily: "'Manrope', 'Segoe UI', sans-serif",
+    },
     button: {
+      fontFamily: "'Manrope', 'Segoe UI', sans-serif",
       textTransform: "none",
       fontWeight: 700,
     },
@@ -45,6 +65,28 @@ const appTheme = createTheme({
     MuiButton: {
       defaultProps: {
         disableElevation: true,
+      },
+      styleOverrides: {
+        root: {
+          borderRadius: 999,
+          paddingInline: 18,
+        },
+      },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: {
+          borderRadius: 999,
+          fontWeight: 700,
+        },
+      },
+    },
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          borderRadius: 16,
+          backgroundColor: "rgba(255, 251, 249, 0.94)",
+        },
       },
     },
   },

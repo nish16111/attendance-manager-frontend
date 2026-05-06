@@ -184,6 +184,14 @@ export const updateUser = async (grNo, formData) => {
   return unwrap(response);
 };
 
+export const importUsers = async (file) => {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await client.post("/api/users/import", formData);
+  return unwrap(response);
+};
+
 export const deleteUser = async (grNo) => {
   const response = await client.delete(`/api/users/${encodeURIComponent(grNo)}`);
   return unwrap(response);

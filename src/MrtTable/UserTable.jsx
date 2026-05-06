@@ -11,6 +11,7 @@ import {
   useTheme,
 } from "@mui/material";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
+import VisibilityRoundedIcon from "@mui/icons-material/VisibilityRounded";
 import { MaterialReactTable } from "material-react-table";
 import { toImageSrc } from "../pages/UserPage/userFormConfig";
 
@@ -23,7 +24,7 @@ const DetailLine = ({ label, value }) => (
   </Box>
 );
 
-const UsersTable = ({ users, onEdit, isLoading }) => {
+const UsersTable = ({ users, onEdit, onView, isLoading }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
@@ -83,20 +84,30 @@ const UsersTable = ({ users, onEdit, isLoading }) => {
       {
         id: "actions",
         header: "Actions",
-        size: 110,
+        size: 180,
         Cell: ({ row }) => (
-          <Button
-            size="small"
-            variant="text"
-            startIcon={<EditRoundedIcon />}
-            onClick={() => onEdit(row.original)}
-          >
-            Edit
-          </Button>
+          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<VisibilityRoundedIcon />}
+              onClick={() => onView(row.original)}
+            >
+              View
+            </Button>
+            <Button
+              size="small"
+              variant="text"
+              startIcon={<EditRoundedIcon />}
+              onClick={() => onEdit(row.original)}
+            >
+              Edit
+            </Button>
+          </Box>
         ),
       },
     ],
-    [onEdit]
+    [onEdit, onView]
   );
 
   if (!users.length && !isLoading) {
@@ -133,7 +144,7 @@ const UsersTable = ({ users, onEdit, isLoading }) => {
               borderRadius: 3,
               border: "1px solid",
               borderColor: "divider",
-              backgroundColor: "rgba(255,255,255,0.88)",
+              backgroundColor: "rgba(255,251,249,0.94)",
             }}
           >
             <Stack spacing={2}>
@@ -154,14 +165,24 @@ const UsersTable = ({ users, onEdit, isLoading }) => {
                   <Typography color="text.secondary">GR No: {user.grNo || "-"}</Typography>
                 </Box>
 
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<EditRoundedIcon />}
-                  onClick={() => onEdit(user)}
-                >
-                  Edit
-                </Button>
+                <Stack direction="row" spacing={1}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<VisibilityRoundedIcon />}
+                    onClick={() => onView(user)}
+                  >
+                    View
+                  </Button>
+                  <Button
+                    variant="text"
+                    size="small"
+                    startIcon={<EditRoundedIcon />}
+                    onClick={() => onEdit(user)}
+                  >
+                    Edit
+                  </Button>
+                </Stack>
               </Stack>
 
               <Box
@@ -210,16 +231,17 @@ const UsersTable = ({ users, onEdit, isLoading }) => {
       muiTablePaperProps={{
         elevation: 0,
         sx: {
-          borderRadius: 3,
+          borderRadius: 4,
           border: "1px solid",
-          borderColor: "divider",
+          borderColor: "rgba(122, 31, 43, 0.14)",
           overflow: "hidden",
+          backgroundColor: "rgba(255, 252, 250, 0.95)",
         },
       }}
       muiTopToolbarProps={{
         sx: {
           background:
-            "linear-gradient(90deg, rgba(242,248,255,0.95) 0%, rgba(248,255,245,0.92) 100%)",
+            "linear-gradient(90deg, rgba(122, 31, 43, 0.08) 0%, rgba(140, 106, 90, 0.08) 100%)",
         },
       }}
     />

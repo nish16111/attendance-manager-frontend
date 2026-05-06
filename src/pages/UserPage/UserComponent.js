@@ -22,11 +22,14 @@ import {
   extractApiError,
   fetchAllUsers,
   fetchUserByGrNo,
+  importUsers,
   updateUser,
 } from "../../API/HomeAPI";
 import { useAuth } from "../../auth/AuthContext";
+import BulkImportCard from "./components/BulkImportCard";
 import UserFormDialog from "./components/UserFormDialog";
 import UserDetailsCard from "./components/UserDetailsCard";
+import ViewUserDialog from "./components/ViewUserDialog";
 import {
   EMPTY_USER_FORM,
   buildUserFormData,
@@ -43,10 +46,18 @@ const UserComponent = () => {
   const [usersLoading, setUsersLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [formSubmitting, setFormSubmitting] = useState(false);
+  const [bulkImporting, setBulkImporting] = useState(false);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState("create");
   const [editingUser, setEditingUser] = useState(null);
+  const [viewUser, setViewUser] = useState(null);
+  const [importSummary, setImportSummary] = useState(null);
+
+  const initiatedUsersCount = useMemo(
+    () => users.filter((entry) => entry.initiated || entry.isInitiated).length,
+    [users]
+  );
 
   const loadUsers = useCallback(async () => {
     setUsersLoading(true);
@@ -100,12 +111,26 @@ const UserComponent = () => {
       try {
         const response = await fetchUserByGrNo(grNo);
         setSelectedUser(response);
-      } catch {
+        return response;
+      } catch (error) {
         setSelectedUser(null);
+        throw error;
       }
     },
     [setSelectedUser]
   );
+
+  const handleQuickLookupView = async (grNo, shouldNotify = false) => {
+    try {
+      await refreshSelectedUser(grNo);
+
+      if (shouldNotify) {
+        toast.success("User details loaded");
+      }
+    } catch (error) {
+      toast.error(extractApiError(error, "User not found"));
+    }
+  };
 
   const handleSubmitUser = async (values, photoFile, { resetForm }) => {
     setFormSubmitting(true);
@@ -125,7 +150,24 @@ const UserComponent = () => {
       resetForm();
 
       await loadUsers();
-      await refreshSelectedUser(values.grNo);
+
+      const selectedGrNo = selectedUser?.grNo;
+      const editedGrNo = editingUser?.grNo;
+      const shouldRefreshOpenDetails =
+        selectedGrNo &&
+        (selectedGrNo === values.grNo || selectedGrNo === editedGrNo);
+      const shouldRefreshViewModal =
+        viewUser?.grNo &&
+        (viewUser.grNo === values.grNo || viewUser.grNo === editedGrNo);
+
+      if (shouldRefreshOpenDetails) {
+        await refreshSelectedUser(values.grNo);
+      }
+
+      if (shouldRefreshViewModal) {
+        const refreshedViewUser = await fetchUserByGrNo(values.grNo);
+        setViewUser(refreshedViewUser);
+      }
     } catch (error) {
       toast.error(
         extractApiError(
@@ -151,20 +193,62 @@ const UserComponent = () => {
     setSearchLoading(true);
 
     try {
-      const response = await fetchUserByGrNo(trimmedGrNo);
-      setSelectedUser(response);
-      toast.success("User fetched successfully");
-    } catch (error) {
-      setSelectedUser(null);
-      toast.error(extractApiError(error, "User not found"));
+      await handleQuickLookupView(trimmedGrNo, true);
     } finally {
       setSearchLoading(false);
     }
   };
 
   const handleEditFromTable = (user) => {
-    setSelectedUser(user);
     openEditDialog(user);
+  };
+
+  const handleViewFromTable = async (user) => {
+    if (!user?.grNo) {
+      return;
+    }
+
+    try {
+      const response = await fetchUserByGrNo(user.grNo);
+      setViewUser(response);
+    } catch (error) {
+      toast.error(extractApiError(error, "Could not load user details"));
+    }
+  };
+
+  const handleEditFromViewDialog = () => {
+    if (!viewUser) {
+      return;
+    }
+
+    const userToEdit = viewUser;
+    setViewUser(null);
+    openEditDialog(userToEdit);
+  };
+
+  const handleBulkImport = async (file) => {
+    if (!file) {
+      toast.info("Choose a CSV or Excel file first");
+      return false;
+    }
+
+    setBulkImporting(true);
+
+    try {
+      const response = await importUsers(file);
+      setImportSummary(response);
+      toast.success(response?.message || "Users imported successfully");
+
+      await loadUsers();
+
+      return true;
+    } catch (error) {
+      setImportSummary(null);
+      toast.error(extractApiError(error, "Could not import users"));
+      return false;
+    } finally {
+      setBulkImporting(false);
+    }
   };
 
   return (
@@ -181,9 +265,10 @@ const UserComponent = () => {
             p: { xs: 2, md: 3 },
             borderRadius: 5,
             border: "1px solid",
-            borderColor: "divider",
-            backgroundColor: "rgba(255,255,255,0.88)",
-            backdropFilter: "blur(6px)",
+            borderColor: "rgba(122, 31, 43, 0.12)",
+            backgroundColor: "rgba(255, 252, 250, 0.92)",
+            backdropFilter: "blur(10px)",
+            boxShadow: "0 24px 80px rgba(95, 34, 44, 0.08)",
           }}
         >
           <Stack spacing={3}>
@@ -215,7 +300,7 @@ const UserComponent = () => {
                     borderRadius: 99,
                     py: 0.4,
                     px: 0.4,
-                    bgcolor: "rgba(12,122,107,0.08)",
+                    bgcolor: "rgba(122, 31, 43, 0.08)",
                     "& .MuiChip-label": {
                       fontWeight: 700,
                     },
@@ -226,8 +311,8 @@ const UserComponent = () => {
                     Attendance User Manager
                   </Typography>
                   <Typography color="text.secondary">
-                    Manage records, fetch users quickly by GR number, and edit
-                    data from a single secure workspace.
+                    Manage records, import users in bulk, and keep viewing,
+                    editing, and lookup flows neatly separated.
                   </Typography>
                 </Box>
               </Stack>
@@ -251,8 +336,20 @@ const UserComponent = () => {
                   startIcon={<AddRoundedIcon />}
                   onClick={openCreateDialog}
                   fullWidth
+                  sx={{
+                    minHeight: 52,
+                    px: { xs: 2.5, sm: 3 },
+                    background:
+                      "linear-gradient(135deg, #7a1f2b 0%, #9b384c 100%)",
+                    boxShadow: "0 14px 32px rgba(122, 31, 43, 0.22)",
+                    "&:hover": {
+                      background:
+                        "linear-gradient(135deg, #651622 0%, #8d3143 100%)",
+                      boxShadow: "0 16px 36px rgba(122, 31, 43, 0.28)",
+                    },
+                  }}
                 >
-                  Add User
+                  Add user
                 </Button>
                 <Button
                   color="secondary"
@@ -272,9 +369,9 @@ const UserComponent = () => {
                 p: { xs: 2, md: 2.5 },
                 borderRadius: 4,
                 border: "1px solid",
-                borderColor: "divider",
+                borderColor: "rgba(122, 31, 43, 0.12)",
                 background:
-                  "linear-gradient(135deg, rgba(247,251,255,0.88) 0%, rgba(242,252,247,0.9) 100%)",
+                  "linear-gradient(135deg, rgba(122, 31, 43, 0.08) 0%, rgba(255, 251, 249, 0.97) 56%, rgba(140, 106, 90, 0.08) 100%)",
               }}
             >
               <Stack
@@ -288,8 +385,8 @@ const UserComponent = () => {
                     Quick lookup
                   </Typography>
                   <Typography color="text.secondary">
-                    Search any user by GR number and open the editable detail view
-                    instantly.
+                    Search by GR number to open the lookup card here. Table
+                    users open in a separate modal so this section stays focused.
                   </Typography>
                 </Box>
 
@@ -328,43 +425,85 @@ const UserComponent = () => {
                   >
                     {searchLoading ? "Searching" : "Get User"}
                   </Button>
+                  {selectedUser ? (
+                    <Button
+                      variant="text"
+                      color="secondary"
+                      onClick={() => setSelectedUser(null)}
+                      sx={{ minWidth: { xs: "100%", sm: 120 } }}
+                    >
+                      Clear view
+                    </Button>
+                  ) : null}
                 </Stack>
               </Stack>
             </Paper>
 
-            <Stack
-              direction={{ xs: "column", md: "row" }}
-              spacing={1.5}
-              useFlexGap
-              flexWrap="wrap"
+            <BulkImportCard
+              onImport={handleBulkImport}
+              importing={bulkImporting}
+              importSummary={importSummary}
+            />
+
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: {
+                  xs: "1fr",
+                  sm: "repeat(2, minmax(0, 1fr))",
+                  lg: "repeat(3, minmax(0, 1fr))",
+                },
+                gap: 1.5,
+              }}
             >
-              <Chip
-                color="primary"
-                variant="outlined"
-                label={`${users.length} total users`}
-              />
-              <Chip
-                color="success"
-                variant="outlined"
-                label={`${users.filter((entry) => entry.initiated || entry.isInitiated).length} initiated`}
-              />
-              <Chip
-                color="secondary"
-                variant="outlined"
-                label="JWT protected session"
-              />
-            </Stack>
+              {[
+                {
+                  label: "Total users",
+                  value: users.length,
+                  tone: "rgba(122, 31, 43, 0.08)",
+                },
+                {
+                  label: "Initiated users",
+                  value: initiatedUsersCount,
+                  tone: "rgba(140, 106, 90, 0.12)",
+                },
+                {
+                  label: "Session",
+                  value: "JWT secured",
+                  tone: "rgba(122, 31, 43, 0.05)",
+                },
+              ].map((item) => (
+                <Paper
+                  key={item.label}
+                  elevation={0}
+                  sx={{
+                    p: 2,
+                    borderRadius: 4,
+                    border: "1px solid",
+                    borderColor: "rgba(122, 31, 43, 0.1)",
+                    bgcolor: item.tone,
+                  }}
+                >
+                  <Typography color="text.secondary" sx={{ mb: 0.4 }}>
+                    {item.label}
+                  </Typography>
+                  <Typography variant="h6">{item.value}</Typography>
+                </Paper>
+              ))}
+            </Box>
 
             {selectedUser ? (
               <UserDetailsCard
                 user={selectedUser}
                 onEdit={() => openEditDialog(selectedUser)}
+                onClose={() => setSelectedUser(null)}
               />
             ) : null}
 
             <UsersTable
               users={users}
               onEdit={handleEditFromTable}
+              onView={handleViewFromTable}
               isLoading={usersLoading}
             />
           </Stack>
@@ -378,6 +517,13 @@ const UserComponent = () => {
         onClose={closeDialog}
         onSubmit={handleSubmitUser}
         submitting={formSubmitting}
+      />
+
+      <ViewUserDialog
+        open={Boolean(viewUser)}
+        user={viewUser}
+        onClose={() => setViewUser(null)}
+        onEdit={handleEditFromViewDialog}
       />
     </Box>
   );
